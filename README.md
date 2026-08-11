@@ -63,7 +63,7 @@ ANTHROPIC_API_KEY=...    # only if extraction.backend: api
 ```bash
 ./run-daily.sh           # one full run; writes out/dist.html and out/run.log
 ./install-cron.sh        # install the 07:00 daily launchd job (macOS)
-uv run pytest            # 102 tests
+uv run pytest            # 113 tests
 ```
 
 `install-cron.sh` generates a launcher under `~/.local/bin` that inlines the
