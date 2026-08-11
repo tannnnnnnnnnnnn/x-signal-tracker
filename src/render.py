@@ -1,10 +1,18 @@
-"""Page rendering, per spec §9.1 — three card types."""
+"""Page rendering, per spec §9.1 — three card types.
+
+Charts are TradingView Lightweight Charts (CDN), interactive: pan, zoom,
+and a 4H/1D/1W timeframe switcher per card. Chart data ships as JSON blobs
+inline; charts initialise lazily as cards scroll into view.
+"""
 
 from __future__ import annotations
 
+import json
 from datetime import datetime
 from html import escape
 from pathlib import Path
+
+LWC_CDN = "https://unpkg.com/lightweight-charts@4.2.3/dist/lightweight-charts.standalone.production.js"
 
 OUT = Path(__file__).resolve().parent.parent / "out" / "dist.html"
 
@@ -64,14 +72,102 @@ font-family:ui-monospace,monospace}
 table.sb tr:last-child td{border-bottom:none}
 .pos{color:var(--g)}
 .neg{color:var(--r)}
+.tfbar{display:flex;gap:6px;margin:8px 0 6px}
+.tfbar button{background:#22262f;color:var(--dim);border:1px solid var(--line);
+border-radius:6px;padding:3px 10px;font:600 12px ui-monospace,monospace;cursor:pointer}
+.tfbar button.on{background:rgba(74,144,217,.18);color:var(--b);border-color:var(--b)}
+.chart{height:320px;border:1px solid var(--line);border-radius:8px;overflow:hidden}
 """
+
+
+JS = """
+const inited = new Set();
+
+function initChart(box) {
+  const id = box.dataset.id;
+  if (inited.has(id)) return;
+  inited.add(id);
+  const data = JSON.parse(document.getElementById('data-' + id).textContent);
+  const el = box.querySelector('.chart');
+  const chart = LightweightCharts.createChart(el, {
+    autoSize: true,
+    layout: {background: {color: '#12141a'}, textColor: '#8b919c',
+             fontFamily: 'ui-monospace, monospace', fontSize: 11},
+    grid: {vertLines: {color: '#1c202a'}, horzLines: {color: '#1c202a'}},
+    timeScale: {timeVisible: true, secondsVisible: false, borderColor: '#242832'},
+    rightPriceScale: {borderColor: '#242832'},
+  });
+  const candles = chart.addCandlestickSeries({
+    upColor: '#26a69a', downColor: '#ef5350', borderVisible: false,
+    wickUpColor: '#26a69a', wickDownColor: '#ef5350',
+  });
+  const lineOpts = {priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false};
+  const stBull = chart.addLineSeries({color: '#26a69a', lineWidth: 2, ...lineOpts});
+  const stBear = chart.addLineSeries({color: '#ef5350', lineWidth: 2, ...lineOpts});
+  // SwingCPR line order: pivot, BC, TC, R1, S1. [color, lineStyle, lineWidth]
+  const cprStyle = {pivot: ['#f5a623', 0, 2], bc: ['#8b919c', 0, 1], tc: ['#8b919c', 0, 1],
+                    r1: ['#26a69a', 2, 1], s1: ['#ef5350', 2, 1]};
+  const cprSeries = {};
+  for (const k in cprStyle) {
+    const [color, lineStyle, lineWidth] = cprStyle[k];
+    cprSeries[k] = chart.addLineSeries({color, lineStyle, lineWidth, ...lineOpts});
+  }
+
+  function setTF(tf) {
+    const d = data[tf];
+    if (!d) return;
+    candles.setData(d.candles);
+    // Supertrend, coloured by direction: two series, whitespace points keep the
+    // inactive direction's line broken instead of joining across flips.
+    const bull = [], bear = [];
+    for (const p of d.st) {
+      (p.dir === 'bull' ? bull : bear).push({time: p.time, value: p.value});
+      (p.dir === 'bull' ? bear : bull).push({time: p.time});
+    }
+    stBull.setData(bull);
+    stBear.setData(bear);
+    // Monthly CPR: flat month-long steps, clipped to the candle range.
+    const first = d.candles.length ? d.candles[0].time : 0;
+    const last = d.candles.length ? d.candles[d.candles.length - 1].time : 0;
+    for (const k in cprSeries) {
+      const pts = [];
+      for (const seg of data.cpr) {
+        if (seg.end < first || seg.start > last) continue;
+        const a = Math.max(seg.start, first);
+        const b = Math.min(seg.end, last);
+        if (b - 60 <= a) continue;
+        pts.push({time: a, value: seg[k]}, {time: b - 60, value: seg[k]}, {time: b - 30});
+      }
+      pts.pop();
+      cprSeries[k].setData(pts);
+    }
+    const n = d.candles.length;
+    chart.timeScale().setVisibleLogicalRange({from: Math.max(0, n - 130), to: n + 3});
+    box.querySelectorAll('.tfbar button').forEach(b =>
+      b.classList.toggle('on', b.dataset.tf === tf));
+  }
+
+  box.querySelectorAll('.tfbar button').forEach(b =>
+    b.addEventListener('click', () => setTF(b.dataset.tf)));
+  setTF('1d');
+}
+
+const io = new IntersectionObserver(entries => {
+  for (const e of entries) {
+    if (e.isIntersecting) { initChart(e.target); io.unobserve(e.target); }
+  }
+}, {rootMargin: '300px'});
+document.querySelectorAll('.chartbox').forEach(b => io.observe(b));
+"""
+
+TF_LABELS = {"4h": "4H", "1d": "1D", "1w": "1W"}
 
 
 def _fmt(v: float) -> str:
     return f"{v:,.2f}" if abs(v) >= 1 else f"{v:,.6f}"
 
 
-def _card_chart(c: dict) -> str:
+def _card_chart(c: dict, idx: int) -> str:
     v = c["verdict"]
     badges = "".join(f'<span class="badge">{escape(b)}</span>' for b in v["badges"])
     clash = (
@@ -80,6 +176,12 @@ def _card_chart(c: dict) -> str:
         f'your indicators say {escape(v["verdict"]).lower()}.</div>'
         if c.get("disagrees") else ""
     )
+    tfs = [tf for tf in ("4h", "1d", "1w") if tf in c["chart_data"]]
+    buttons = "".join(
+        f'<button data-tf="{tf}">{TF_LABELS[tf]}</button>' for tf in tfs
+    )
+    # </script> inside a JSON string would end the block early; escape the slash.
+    payload = json.dumps(c["chart_data"], separators=(",", ":")).replace("</", "<\\/")
     return f"""<div class="card">
 {_header(c)}
 {_body(c)}
@@ -89,7 +191,11 @@ def _card_chart(c: dict) -> str:
   <span class="v {VERDICT_CLASS.get(v["verdict"], "vy")}">{escape(v["verdict"])}</span>
   {badges}
 </div>
-{c["svg"]}
+<div class="chartbox" data-id="{idx}">
+  <div class="tfbar">{buttons}</div>
+  <div class="chart"></div>
+</div>
+<script type="application/json" id="data-{idx}">{payload}</script>
 <div class="meta">
   <span>ST {_fmt(c["st_value"])} ({escape(v["st_direction"])})</span>
   <span>P {_fmt(c["cpr"]["pivot"])}</span>
@@ -176,7 +282,7 @@ def render(cards: list[dict], unresolved: list[dict], stats: dict,
 
     if chart_cards:
         html.append('<div class="sec">Charted</div>')
-        html.extend(_card_chart(c) for c in chart_cards)
+        html.extend(_card_chart(c, i) for i, c in enumerate(chart_cards))
 
     if nochart_cards:
         html.append('<div class="sec">Mentioned &mdash; no price feed</div>')
@@ -195,12 +301,16 @@ def render(cards: list[dict], unresolved: list[dict], stats: dict,
     html.append(_scoreboard(board or []))
     html.append("</div>")
 
+    scripts = ""
+    if chart_cards:
+        scripts = f'<script src="{LWC_CDN}"></script><script>{JS}</script>'
+
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(
         f"<!doctype html><html><head><meta charset='utf-8'>"
         f"<meta name='viewport' content='width=device-width,initial-scale=1'>"
         f"<title>X Signal Tracker</title><style>{CSS}</style></head>"
-        f"<body>{''.join(html)}</body></html>",
+        f"<body>{''.join(html)}{scripts}</body></html>",
         encoding="utf-8",
     )
     return out

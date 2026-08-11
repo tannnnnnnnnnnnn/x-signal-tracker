@@ -186,6 +186,31 @@ def swing_cpr(df: pd.DataFrame, asof: pd.Timestamp | None = None) -> CPR:
     )
 
 
+def cpr_history(df: pd.DataFrame) -> list[dict]:
+    """Per-month CPR segments for chart drawing.
+
+    One dict per month that has a completed prior month: start/end timestamps of
+    the month the levels apply to, plus the five SwingCPR levels. The final
+    segment is the in-progress month (same levels swing_cpr returns).
+    """
+    monthly = _monthly_ohlc(df)
+    out = []
+    for i in range(1, len(monthly)):
+        row = monthly.iloc[i - 1]
+        h, low_, c = float(row["high"]), float(row["low"]), float(row["close"])
+        pivot = (h + low_ + c) / 3
+        bc = (h + low_) / 2
+        tc = 2 * pivot - bc
+        start = monthly.index[i]
+        out.append({
+            "start": start,
+            "end": start + pd.offsets.MonthBegin(1),
+            "pivot": pivot, "bc": bc, "tc": tc,
+            "r1": 2 * pivot - low_, "s1": 2 * pivot - h,
+        })
+    return out
+
+
 def cpr_width_history(df: pd.DataFrame, lookback: int = CPR_WIDTH_LOOKBACK) -> list[float]:
     """Widths of the `lookback` completed months before the current one."""
     monthly = _monthly_ohlc(df)

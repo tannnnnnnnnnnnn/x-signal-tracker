@@ -19,8 +19,11 @@ call agrees with the indicators.
    vision on attached chart images. LLM backend is `claude -p` headless (runs on
    a Claude subscription) or the Anthropic SDK. Resolution is registry-only —
    no fuzzy matching, ever.
-3. **Prices** ([src/prices.py](src/prices.py)) — crypto daily bars via CCXT
-   (Binance → Bybit → OKX fallback), everything else via yfinance.
+3. **Prices** ([src/prices.py](src/prices.py)) — crypto bars via CCXT
+   (Binance → Bybit → OKX fallback), everything else via yfinance. Solana
+   contract addresses (pump.fun posts) resolve through DexScreener and chart
+   from GeckoTerminal pool OHLCV ([src/onchain.py](src/onchain.py)) — no
+   registry entry needed, the address is the identity.
 4. **Indicators** ([src/indicators.py](src/indicators.py)) — Supertrend(22,3)
    with Wilder ATR (seeded like Pine's `ta.rma`) and calendar-monthly Swing CPR
    (pivot, BC, TC, R1, S1). Reproduces TradingView values to 0.00001%.
@@ -31,9 +34,11 @@ call agrees with the indicators.
    unrecoverable later).
 7. **Outcomes** ([src/outcomes.py](src/outcomes.py)) — 7/30/90-day forward
    returns per mention and a per-source scoreboard.
-8. **Render** ([src/render.py](src/render.py), [src/chart.py](src/chart.py)) —
-   one HTML page with inline SVG candlestick charts; PNG charts via Pillow for
-   the Telegram digest ([src/telegram.py](src/telegram.py)).
+8. **Render** ([src/render.py](src/render.py)) — one HTML page with
+   interactive TradingView Lightweight Charts: pan, zoom, and a 4H/1D/1W
+   switcher per card, with Supertrend and monthly CPR bands drawn on every
+   timeframe. The verdict and snapshot always come from 1D. PNG charts via
+   Pillow for the Telegram digest ([src/telegram.py](src/telegram.py)).
 
 ## Setup
 

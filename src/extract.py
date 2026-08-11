@@ -22,6 +22,8 @@ from pathlib import Path
 import requests
 import yaml
 
+import onchain
+
 ALIASES = Path(__file__).resolve().parent.parent / "config" / "aliases.yaml"
 CASHTAG = re.compile(r"\$([A-Za-z][A-Za-z0-9._-]{0,9})\b")
 ASSET_CLASSES = ("crypto", "us_equity", "commodity_fx", "in_equity")
@@ -78,7 +80,16 @@ class Registry:
             return cls(yaml.safe_load(fh))
 
     def resolve(self, token: str, method: str, source_field: str) -> Mention | None:
-        """Registry-only resolution. Unknown tokens stay unresolved, by design."""
+        """Registry-only resolution. Unknown tokens stay unresolved, by design.
+
+        One exception to registry-only: a Solana contract address IS the
+        identity of an on-chain token — nothing to fuzzy-match, no registry
+        entry needed. It resolves to `solana:<ca>` and the DEX APIs supply the
+        symbol and name downstream.
+        """
+        if onchain.is_onchain_symbol(token.strip()):
+            return Mention(token, None, onchain.to_symbol(token), "onchain",
+                           method, source_field, 1.0)
         key = token.lower().lstrip("$").strip()
         if not key or key in self.stopwords:
             return None
@@ -132,6 +143,14 @@ def extract_keywords(text: str, registry: Registry, source_field: str) -> list[M
                 out.append(m)
             break
     return out
+
+
+def extract_contracts(text: str, source_field: str) -> list[Mention]:
+    """Deterministic scan for bare Solana contract addresses (pump.fun posts)."""
+    return [
+        Mention(ca, None, onchain.to_symbol(ca), "onchain", "contract", source_field, 1.0)
+        for ca in onchain.find_contracts(text or "")
+    ]
 
 
 PROSE_PROMPT = """Extract every financial asset mentioned in this social media post.
@@ -313,7 +332,7 @@ def _symbol_candidates(symbol: str) -> list[str]:
 def dedupe(mentions: list[Mention]) -> list[Mention]:
     """One row per resolved target, preferring the highest-confidence finder."""
     best: dict[str, Mention] = {}
-    order = {"cashtag": 3, "vision": 2, "llm": 1, "alias": 0}
+    order = {"contract": 4, "cashtag": 3, "vision": 2, "llm": 1, "alias": 0}
     for m in mentions:
         key = (m.resolved_symbol or m.subject or m.raw_token).lower()
         current = best.get(key)

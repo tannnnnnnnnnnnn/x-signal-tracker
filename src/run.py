@@ -14,21 +14,62 @@ import threading
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 
-import chart
 import chart_png
 import db
 import extract
 import ingest
+import onchain
 import outcomes
 import prices
 import render
 import telegram
-from indicators import cpr_width_history, supertrend, swing_cpr
+from indicators import cpr_history, cpr_width_history, supertrend, swing_cpr
 from verdict import judge, sentiment_disagrees
 
 
 def log(msg: str) -> None:
     print(f"[{datetime.now():%H:%M:%S}] {msg}", flush=True)
+
+
+# Interactive chart timeframes. 1D drives the verdict and snapshot; 4H and 1W
+# are view-only and degrade gracefully when a venue or a young token lacks bars.
+EXTRA_TIMEFRAMES = {"4h": 1000, "1w": 500}
+
+
+def _tf_series(df, st) -> dict:
+    candles = [
+        {"time": int(ts.timestamp()), "open": float(r["open"]), "high": float(r["high"]),
+         "low": float(r["low"]), "close": float(r["close"])}
+        for ts, r in df.iterrows()
+    ]
+    st_points = []
+    if st is not None:
+        for ts, r in st.series.dropna(subset=["supertrend"]).iterrows():
+            st_points.append({"time": int(ts.timestamp()),
+                              "value": float(r["supertrend"]), "dir": r["direction"]})
+    return {"candles": candles, "st": st_points}
+
+
+def build_chart_data(symbol: str, asset_class: str, df_1d, st_1d, min_bars: int) -> dict:
+    """Candles + supertrend for 1D/4H/1W, plus monthly CPR segments (from 1D)."""
+    data = {"1d": _tf_series(df_1d, st_1d)}
+    for tf, limit in EXTRA_TIMEFRAMES.items():
+        try:
+            df_tf = prices.fetch(symbol, asset_class, limit, timeframe=tf)
+            try:
+                st_tf = supertrend(df_tf)
+            except ValueError:
+                st_tf = None  # young token: fewer than ATR-period bars on this TF
+            data[tf] = _tf_series(df_tf, st_tf)
+        except Exception as exc:
+            log(f"  {symbol} {tf} unavailable: {exc}")
+    data["cpr"] = [
+        {"start": int(seg["start"].timestamp()), "end": int(seg["end"].timestamp()),
+         "pivot": seg["pivot"], "bc": seg["bc"], "tc": seg["tc"],
+         "r1": seg["r1"], "s1": seg["s1"]}
+        for seg in cpr_history(df_1d)
+    ]
+    return data
 
 
 def build_cards(tweets: list[dict], registry: extract.Registry, cfg: dict,
@@ -67,6 +108,8 @@ def build_cards(tweets: list[dict], registry: extract.Registry, cfg: dict,
         mentions += extract.extract_cashtags(t.get("quoted_text") or "", registry, "quoted_text")
         mentions += extract.extract_keywords(t["text"], registry, "text")
         mentions += extract.extract_keywords(t.get("quoted_text") or "", registry, "quoted_text")
+        mentions += extract.extract_contracts(t["text"], "text")
+        mentions += extract.extract_contracts(t.get("quoted_text") or "", "quoted_text")
         sentiment = None
 
         if llm_on:
@@ -118,10 +161,18 @@ def build_cards(tweets: list[dict], registry: extract.Registry, cfg: dict,
                 continue
 
             try:
+                display_symbol, display_name = m.resolved_symbol, m.subject
+                if m.asset_class == "onchain":
+                    meta = onchain.resolve(m.resolved_symbol)
+                    display_symbol = f"${meta['symbol']}"
+                    display_name = f"{meta['name']} · {meta['dex']}"
                 df = prices.fetch(m.resolved_symbol, m.asset_class, cfg["prices"]["min_bars"])
                 st = supertrend(df)
                 cpr = swing_cpr(df)
                 v = judge(float(df["close"].iloc[-1]), st, cpr, cpr_width_history(df))
+                chart_data = build_chart_data(
+                    m.resolved_symbol, m.asset_class, df, st, cfg["prices"]["min_bars"]
+                )
             except Exception as exc:
                 log(f"  price/indicator failure for {m.resolved_symbol}: {exc}")
                 unresolved.append({**base, "raw_token": f"{m.raw_token} (data error: {exc})",
@@ -131,7 +182,8 @@ def build_cards(tweets: list[dict], registry: extract.Registry, cfg: dict,
 
             cards.append({
                 **base, "kind": "chart",
-                "symbol": m.resolved_symbol, "name": m.subject or m.resolved_symbol,
+                "symbol": display_symbol, "name": display_name or display_symbol,
+                "_symbol": m.resolved_symbol,  # canonical, refetchable (outcomes)
                 "close": float(df["close"].iloc[-1]),
                 "st_value": st.value,
                 "cpr": {"pivot": cpr.pivot, "bc": cpr.bc, "tc": cpr.tc,
@@ -141,7 +193,7 @@ def build_cards(tweets: list[dict], registry: extract.Registry, cfg: dict,
                 "verdict": {"verdict": v.verdict, "st_direction": v.st_direction,
                             "badges": v.badges},
                 "disagrees": sentiment_disagrees(sentiment, v),
-                "svg": chart.render_svg(df, st, cpr),
+                "chart_data": chart_data,
                 "_tweet_id": t["id"], "_mention": m, "_df": df, "_st": st, "_cpr": cpr,
             })
 

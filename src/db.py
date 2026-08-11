@@ -132,7 +132,7 @@ def insert_snapshot(conn: sqlite3.Connection, mention_id: int, card: dict, asof:
             cpr_pivot, cpr_bc, cpr_tc, cpr_r1, cpr_s1, prior_high, prior_low,
             cpr_width, narrow_cpr, inverted_cpr, verdict, conflict)
            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
-        (mention_id, card["symbol"], asof, card["close"], card["st_value"],
+        (mention_id, card.get("_symbol") or card["symbol"], asof, card["close"], card["st_value"],
          v["st_direction"], c["pivot"], c["bc"], c["tc"], c["r1"], c["s1"],
          c["prior_high"], c["prior_low"], c["width"],
          int("narrow CPR" in v["badges"]), int("inverted CPR" in v["badges"]),
