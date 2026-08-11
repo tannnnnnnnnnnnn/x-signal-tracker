@@ -1,0 +1,14 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.env
+data/
+out/
+.claude/
+
+# Personal / confidential — never publish
+config/settings.yaml
+AI-Advisor-Build-Guide.pdf
+ASSET INVESTOR PROMPT.md
+cowork-investor-os-system-prompt.md

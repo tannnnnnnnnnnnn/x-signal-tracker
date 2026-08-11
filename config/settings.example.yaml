@@ -1,0 +1,30 @@
+# X Signal Tracker settings. Copy to settings.yaml and fill in your own values.
+# settings.yaml is gitignored — it carries your List ID and watchlist policy.
+
+x:
+  list_id: "YOUR_X_LIST_ID"      # numeric ID of the X List you curate
+  browser: chrome                # browser holding your logged-in X session
+  chrome_profile: Default
+  lookback_hours: 24
+  max_tweets: 200
+
+# Runtime membership lives in the X List. This block only carries per-account
+# policy; a handle appearing in the List but not here defaults to include_retweets.
+accounts:
+  - handle: some_trader
+    include_retweets: true
+  - handle: promo_heavy_account
+    include_retweets: false      # filter accounts whose retweets are mostly promos
+
+prices:
+  min_bars: 500
+
+extraction:
+  # claude_cli -> Claude Code headless, runs on a Claude subscription, no API key.
+  #               Slower: ~9s per text call, ~17s per image.
+  # api        -> Anthropic SDK, needs ANTHROPIC_API_KEY, much faster.
+  backend: claude_cli
+  model: haiku
+  vision: true
+  max_images_per_run: 30
+  workers: 4

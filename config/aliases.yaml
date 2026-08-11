@@ -1,0 +1,174 @@
+# Symbol resolution. Hand-maintained; the extractor never guesses beyond this.
+#
+# Keys are lowercased raw tokens as they appear in tweets (without any leading $).
+# `symbol` is the data-source ticker; `asset_class` picks the fetcher (spec §5).
+#
+# `subject_only: true` means the asset is real but has no OHLCV feed anywhere.
+# Those produce a no-chart card (spec §9.1), NOT an unresolved entry, and NOT a
+# fuzzy match onto a similarly named listed token.
+
+crypto:
+  btc: {symbol: "BTC/USDT", name: Bitcoin}
+  bitcoin: {symbol: "BTC/USDT", name: Bitcoin}
+  eth: {symbol: "ETH/USDT", name: Ethereum}
+  ethereum: {symbol: "ETH/USDT", name: Ethereum}
+  sol: {symbol: "SOL/USDT", name: Solana}
+  solana: {symbol: "SOL/USDT", name: Solana}
+  hype: {symbol: "HYPE/USDT", name: Hyperliquid}
+  hyperliquid: {symbol: "HYPE/USDT", name: Hyperliquid}
+  bnb: {symbol: "BNB/USDT", name: BNB}
+  xrp: {symbol: "XRP/USDT", name: XRP}
+  doge: {symbol: "DOGE/USDT", name: Dogecoin}
+  # Added 2026-08-06 from the unresolved bucket after the first full LLM run.
+  dogecoin: {symbol: "DOGE/USDT", name: Dogecoin}
+  zcash: {symbol: "ZEC/USDT", name: Zcash}
+  zec: {symbol: "ZEC/USDT", name: Zcash}
+  link: {symbol: "LINK/USDT", name: Chainlink}
+  avax: {symbol: "AVAX/USDT", name: Avalanche}
+  sui: {symbol: "SUI/USDT", name: Sui}
+  ena: {symbol: "ENA/USDT", name: Ethena}
+  pepe: {symbol: "PEPE/USDT", name: Pepe}
+  wif: {symbol: "WIF/USDT", name: dogwifhat}
+  jup: {symbol: "JUP/USDT", name: Jupiter}
+  jto: {symbol: "JTO/USDT", name: Jito}
+  ondo: {symbol: "ONDO/USDT", name: Ondo}
+  # Added 2026-08-10 from the unresolved bucket. HYPE is why prices.py now
+  # falls back across exchanges: Binance lists only the perpetual, Bybit spot.
+  bonk: {symbol: "BONK/USDT", name: Bonk}
+  sushi: {symbol: "SUSHI/USDT", name: SushiSwap}
+  sushiswap: {symbol: "SUSHI/USDT", name: SushiSwap}
+  pump: {symbol: "PUMP/USDT", name: Pump.fun}
+  pumpfun: {symbol: "PUMP/USDT", name: Pump.fun}
+
+us_equity:
+  spy: {symbol: SPY, name: S&P 500 ETF}
+  qqq: {symbol: QQQ, name: Nasdaq 100 ETF}
+  nvda: {symbol: NVDA, name: NVIDIA}
+  tsla: {symbol: TSLA, name: Tesla}
+  aapl: {symbol: AAPL, name: Apple}
+  msft: {symbol: MSFT, name: Microsoft}
+  meta: {symbol: META, name: Meta}
+  amzn: {symbol: AMZN, name: Amazon}
+  googl: {symbol: GOOGL, name: Alphabet}
+  coin: {symbol: COIN, name: Coinbase}
+  mstr: {symbol: MSTR, name: MicroStrategy}
+  # Deliberate trap, spec §11: the cashtag is Barrick Gold, not the metal.
+  gld: {symbol: GLD, name: SPDR Gold Trust}
+  # Added 2026-08-10 from the unresolved bucket.
+  gme: {symbol: GME, name: GameStop}
+  broadcom: {symbol: AVGO, name: Broadcom}
+  avgo: {symbol: AVGO, name: Broadcom}
+  rklb: {symbol: RKLB, name: Rocket Lab}
+
+commodity_fx:
+  gold: {symbol: "GC=F", name: Gold}
+  xauusd: {symbol: "GC=F", name: Gold}
+  silver: {symbol: "SI=F", name: Silver}
+  xagusd: {symbol: "SI=F", name: Silver}
+  oil: {symbol: "CL=F", name: Crude Oil}
+  wti: {symbol: "CL=F", name: Crude Oil}
+  dxy: {symbol: "DX-Y.NYB", name: US Dollar Index}
+  copper: {symbol: "HG=F", name: Copper}
+
+in_equity:
+  nifty: {symbol: "^NSEI", name: NIFTY 50}
+  banknifty: {symbol: "^NSEBANK", name: Bank NIFTY}
+  sensex: {symbol: "^BSESN", name: SENSEX}
+  sbi: {symbol: "SBIN.NS", name: State Bank of India}
+  sbin: {symbol: "SBIN.NS", name: State Bank of India}
+  bse: {symbol: "BSE.NS", name: BSE Ltd}
+  reliance: {symbol: "RELIANCE.NS", name: Reliance Industries}
+  infy: {symbol: "INFY.NS", name: Infosys}
+  tcs: {symbol: "TCS.NS", name: TCS}
+  hdfcbank: {symbol: "HDFCBANK.NS", name: HDFC Bank}
+  icicibank: {symbol: "ICICIBANK.NS", name: ICICI Bank}
+  tatamotors: {symbol: "TATAMOTORS.NS", name: Tata Motors}
+  zomato: {symbol: "ETERNAL.NS", name: Eternal (Zomato)}
+  # Added 2026-08-10 from the unresolved bucket — all real NSE names that
+  # @YuvrajShah02 posts about. Capital-goods and pharma baskets.
+  lt: {symbol: "LT.NS", name: Larsen & Toubro}
+  larsentoubro: {symbol: "LT.NS", name: Larsen & Toubro}
+  siemens: {symbol: "SIEMENS.NS", name: Siemens India}
+  siemensindia: {symbol: "SIEMENS.NS", name: Siemens India}
+  abb: {symbol: "ABB.NS", name: ABB India}
+  abbindia: {symbol: "ABB.NS", name: ABB India}
+  powerindia: {symbol: "POWERINDIA.NS", name: Hitachi Energy India}
+  hitachienergyindia: {symbol: "POWERINDIA.NS", name: Hitachi Energy India}
+  polycab: {symbol: "POLYCAB.NS", name: Polycab India}
+  polycabindia: {symbol: "POLYCAB.NS", name: Polycab India}
+  cgpower: {symbol: "CGPOWER.NS", name: CG Power}
+  thermax: {symbol: "THERMAX.NS", name: Thermax}
+  cumminsindia: {symbol: "CUMMINSIND.NS", name: Cummins India}
+  cdsl: {symbol: "CDSL.NS", name: CDSL}
+  apollohospitals: {symbol: "APOLLOHOSP.NS", name: Apollo Hospitals}
+  divislaboratories: {symbol: "DIVISLAB.NS", name: Divi's Laboratories}
+  divislab: {symbol: "DIVISLAB.NS", name: Divi's Laboratories}
+  drreddyslaboratories: {symbol: "DRREDDY.NS", name: Dr. Reddy's Laboratories}
+  drreddy: {symbol: "DRREDDY.NS", name: Dr. Reddy's Laboratories}
+  maxhealthcare: {symbol: "MAXHEALTH.NS", name: Max Healthcare}
+
+# Real assets with no price feed. Never fuzzy-match these onto listed tickers.
+subject_only:
+  bulksol: {name: BulkSOL}
+  yt-bulksol: {name: YT-BulkSOL (Exponent)}
+  aura: {name: AURA (BULK Exchange points)}
+  exponent: {name: Exponent Finance}
+  polymarket: {name: Polymarket}
+  variational: {name: Variational}
+  perpl: {name: Perpl}
+  bullpen: {name: Bullpen}
+  poly: {name: POLY (Polymarket token)}
+
+# Registry keys too ambiguous for the bare-prose keyword scan. They still resolve
+# from an explicit cashtag or from the LLM pass, which sees context.
+#   coin  -> "shitcoin", "this coin"
+#   meta  -> crypto slang for a narrative
+#   link  -> ordinary English
+#   sui   -> substring risk, and rare in prose
+#   pump  -> "pump", "pumping" are ordinary crypto prose
+#   abb   -> too short to be safe in bare text
+keyword_exclude:
+  - pump
+  - abb
+  - gme
+  - coin
+  - meta
+  - link
+  - sui
+  - jup
+  - jto
+  - bse
+  - oil
+
+# Tokens that must never resolve to anything. Common false positives from the
+# cashtag regex and from prose.
+# Quoted throughout: YAML 1.1 parses bare on/off/yes/no/y/n as booleans.
+stopwords:
+  - "a"
+  - "i"
+  - "the"
+  - "it"
+  - "is"
+  - "to"
+  - "do"
+  - "go"
+  - "up"
+  - "in"
+  - "on"
+  - "at"
+  - "no"
+  - "y"
+  - "n"
+  - usd
+  - usdt
+  - usdc
+  - ath
+  - eod
+  - ipo
+  - ceo
+  - etf
+  - api
+  - gm
+  - lfg
+  - ngmi
+  - wagmi
