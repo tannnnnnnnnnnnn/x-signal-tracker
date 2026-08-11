@@ -115,8 +115,10 @@ def build_cards(tweets: list[dict], registry: extract.Registry, cfg: dict,
         if llm_on:
             combined = t["text"] + ("\n\n[quoted] " + t["quoted_text"] if t.get("quoted_text") else "")
             try:
-                prose, sentiment = extract.extract_prose(combined, registry, "text", model, backend)
+                prose, sentiment, incidental = extract.extract_prose(
+                    combined, registry, "text", model, backend)
                 mentions += prose
+                mentions = extract.drop_incidental(mentions, incidental)
             except Exception as exc:
                 failures.append(f"prose {t['id']}: {exc}")
 

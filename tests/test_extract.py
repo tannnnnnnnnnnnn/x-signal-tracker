@@ -236,3 +236,50 @@ def test_pump_excluded_from_keyword_scan(registry):
     from extract import extract_keywords
     assert extract_keywords("everything is pumping today, nice pump", registry, "text") == []
     assert registry.resolve("$PUMP", "cashtag", "text").resolved_symbol == "PUMP/USDT"
+
+
+# --- Incidental-mention gating (the "solana wallet functionality" trap) --------
+
+
+def test_extract_prose_returns_incidental_keys(registry, monkeypatch):
+    import extract as ex
+
+    raw = '{"assets": [], "incidental": ["solana", "$ANSEM"], "sentiment": "neutral"}'
+    monkeypatch.setattr(ex, "_cli_call", lambda *a, **k: raw)
+    mentions, sentiment, incidental = ex.extract_prose(
+        "i will ask for solana wallet functionality to give followers $ANSEM",
+        registry, "text", "m")
+    assert mentions == []
+    assert "solana" in incidental
+    assert "sol/usdt" in incidental  # resolved form too
+    assert "ansem" in incidental
+
+
+def test_market_view_wins_over_incidental(registry, monkeypatch):
+    import extract as ex
+
+    raw = '{"assets": ["solana"], "incidental": ["solana"], "sentiment": "bullish"}'
+    monkeypatch.setattr(ex, "_cli_call", lambda *a, **k: raw)
+    mentions, _, incidental = ex.extract_prose("sol chart looks ready", registry, "text", "m")
+    assert mentions[0].resolved_symbol == "SOL/USDT"
+    assert "sol/usdt" not in incidental and "solana" not in incidental
+
+
+def test_drop_incidental_gates_text_hits_not_contracts(registry):
+    from extract import drop_incidental, extract_contracts, extract_keywords
+
+    ca = "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump"
+    mentions = extract_keywords("solana wallet functionality", registry, "text")
+    mentions += extract_contracts(f"send {ca}", "text")
+    assert any(m.resolved_symbol == "SOL/USDT" for m in mentions)
+
+    kept = drop_incidental(mentions, {"sol/usdt", "solana"})
+    assert not any(m.resolved_symbol == "SOL/USDT" for m in kept)
+    assert any(m.method == "contract" for m in kept)  # CA is deliberate, ungated
+
+
+def test_drop_incidental_noop_without_llm_judgement(registry):
+    from extract import drop_incidental, extract_keywords
+
+    mentions = extract_keywords("solana wallet functionality", registry, "text")
+    assert drop_incidental(mentions, set()) == mentions

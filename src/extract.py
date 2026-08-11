@@ -145,6 +145,26 @@ def extract_keywords(text: str, registry: Registry, source_field: str) -> list[M
     return out
 
 
+# Methods gated by the LLM's incidental judgement. A posted contract address or
+# chart screenshot is a deliberate act; text hits can be passing mentions.
+GATED_METHODS = {"cashtag", "alias", "llm"}
+
+
+def drop_incidental(mentions: list[Mention], incidental: set[str]) -> list[Mention]:
+    """Drop text-pass mentions the LLM judged as having no market view."""
+    if not incidental:
+        return mentions
+    kept = []
+    for m in mentions:
+        keys = {(m.resolved_symbol or "").lower(),
+                m.raw_token.lower().lstrip("$"),
+                (m.subject or "").lower()} - {""}
+        if m.method in GATED_METHODS and keys & incidental:
+            continue
+        kept.append(m)
+    return kept
+
+
 def extract_contracts(text: str, source_field: str) -> list[Mention]:
     """Deterministic scan for bare Solana contract addresses (pump.fun posts)."""
     return [
@@ -162,7 +182,14 @@ markets) — name them exactly as written.
 Exclude: company names used in passing with no trading context, product names,
 usernames, and generic market talk ("the market", "alts").
 
-Also judge the post's directional stance on those assets.
+Split the assets by whether the author expresses a market-relevant view:
+- "assets": the author states or implies an opinion, position, prediction, or
+  chart observation about the asset's price or market.
+- "incidental": the asset (or its chain/company) appears only in passing —
+  wallet/chain infrastructure, payments, airdrops or giveaways, follower and
+  community talk, app features — with no view on its price.
+
+Also judge the post's directional stance on the "assets".
 
 Post:
 ---
@@ -170,7 +197,7 @@ Post:
 ---
 
 Return JSON only:
-{{"assets": ["..."], "sentiment": "bullish"|"bearish"|"neutral"}}"""
+{{"assets": ["..."], "incidental": ["..."], "sentiment": "bullish"|"bearish"|"neutral"}}"""
 
 VISION_PROMPT = """This image is attached to a trading post. If it is a price
 chart, read the instrument symbol from the chart header (e.g. "BTCUSDT",
@@ -245,10 +272,14 @@ def backend_available(backend: str) -> bool:
 
 
 def extract_prose(text: str, registry: Registry, source_field: str, model: str,
-                  backend: str = "claude_cli") -> tuple[list[Mention], str | None]:
-    """LLM pass over text. Returns (mentions, sentiment)."""
+                  backend: str = "claude_cli") -> tuple[list[Mention], str | None, set[str]]:
+    """LLM pass over text. Returns (mentions, sentiment, incidental_keys).
+
+    incidental_keys are lowercase names/symbols the model judged as mentioned
+    without a market view — used to gate cashtag/keyword hits on the same tweet.
+    """
     if not (text or "").strip():
-        return [], None
+        return [], None, set()
 
     prompt = PROSE_PROMPT.format(text=text)
     if backend == "claude_cli":
@@ -262,8 +293,18 @@ def extract_prose(text: str, registry: Registry, source_field: str, model: str,
 
     data = _json_from(raw)
     mentions = [m for a in data.get("assets", []) if (m := registry.resolve(a, "llm", source_field))]
+    signal = {(m.resolved_symbol or m.raw_token).lower() for m in mentions}
+    incidental: set[str] = set()
+    for name in data.get("incidental", []):
+        keys = {str(name).lower().lstrip("$")}
+        m = registry.resolve(str(name), "llm", source_field)
+        if m and m.resolved_symbol:
+            keys.add(m.resolved_symbol.lower())
+        if keys & signal:  # a market-view listing wins over incidental
+            continue
+        incidental |= keys
     sentiment = data.get("sentiment")
-    return mentions, (sentiment if sentiment in ("bullish", "bearish", "neutral") else None)
+    return mentions, (sentiment if sentiment in ("bullish", "bearish", "neutral") else None), incidental
 
 
 def extract_vision(image_url: str, registry: Registry, model: str,
