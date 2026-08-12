@@ -23,46 +23,65 @@ VERDICT_CLASS = {
 }
 
 CSS = """
-:root{--bg:#0f1115;--card:#171a21;--line:#242832;--tx:#e6e8ec;--dim:#8b919c;
---g:#26a69a;--r:#ef5350;--y:#f5a623;--b:#4a90d9}
+:root{--bg:#0c0e13;--card:#151821;--well:#10131a;--line:#232837;--tx:#e8eaef;
+--dim:#8f96a3;--g:#26a69a;--r:#ef5350;--y:#f5a623;--b:#5b9de0}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--tx);
-font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
-.wrap{max-width:860px;margin:0 auto;padding:24px 16px 64px}
-h1{font-size:20px;margin:0 0 4px}
-.sub{color:var(--dim);font-size:13px;margin-bottom:20px}
-.banner{background:#3a2a12;border:1px solid #6b4a1a;border-radius:8px;
-padding:10px 12px;margin-bottom:16px;font-size:13px}
-.banner.err{background:#3a1618;border-color:#7a2a2e}
-.card{background:var(--card);border:1px solid var(--line);border-radius:10px;
-padding:14px 16px;margin-bottom:14px}
+font:14px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+-webkit-font-smoothing:antialiased}
+.wrap{max-width:880px;margin:0 auto;padding:28px 18px 72px}
+.top{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+h1{font-size:21px;margin:0;letter-spacing:-.01em}
+.date{color:var(--dim);font-size:13px}
+.stats{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0 24px}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:99px;
+padding:4px 12px;font-size:12px;color:var(--dim)}
+.stat b{color:var(--tx);font-weight:600;margin-right:5px;font-family:ui-monospace,monospace}
+.banner{background:#33250f;border:1px solid #6b4a1a;border-radius:10px;
+padding:10px 14px;margin-bottom:12px;font-size:13px;color:#e8c68a}
+.banner.err{background:#331416;border-color:#7a2a2e;color:#eba1a3}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;
+padding:16px 18px;margin-bottom:16px;transition:border-color .15s}
+.card:hover{border-color:#303748}
 .hd{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;margin-bottom:6px}
-.who{font-weight:600}
+.who{font-weight:650}
 .rt{color:var(--dim);font-size:12px}
 .when{color:var(--dim);font-size:12px;margin-left:auto}
-.tw{color:#c9ced6;white-space:pre-wrap;margin:6px 0 12px;font-size:13px}
+.tw{color:#c6cbd4;white-space:pre-wrap;margin:6px 0 14px;font-size:13px}
 .quo{border-left:2px solid var(--line);padding-left:10px;color:var(--dim);
-margin:6px 0 12px;font-size:13px;white-space:pre-wrap}
-.sym{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;margin-bottom:8px}
-.tick{font:600 15px ui-monospace,monospace}
+margin:6px 0 14px;font-size:13px;white-space:pre-wrap}
+.sym{display:flex;gap:10px;align-items:center;flex-wrap:wrap;
+background:var(--well);border:1px solid var(--line);border-radius:10px;
+padding:9px 13px;margin-bottom:10px}
+.tick{font:650 15px ui-monospace,monospace;letter-spacing:.01em}
 .px{color:var(--dim);font:12px ui-monospace,monospace}
-.v{padding:3px 9px;border-radius:99px;font-size:12px;font-weight:600}
-.vg{background:rgba(38,166,154,.16);color:var(--g)}
-.vg-soft{background:rgba(38,166,154,.09);color:var(--g)}
-.vr{background:rgba(239,83,80,.16);color:var(--r)}
-.vr-soft{background:rgba(239,83,80,.09);color:var(--r)}
-.vy{background:rgba(245,166,35,.16);color:var(--y)}
-.badge{background:#22262f;color:var(--dim);padding:3px 8px;border-radius:99px;font-size:11px}
-.clash{background:rgba(245,166,35,.12);border:1px solid rgba(245,166,35,.35);
-color:#f0b757;border-radius:8px;padding:8px 10px;margin:10px 0 0;font-size:12.5px}
-.meta{display:flex;gap:14px;flex-wrap:wrap;color:var(--dim);
+.v{display:inline-flex;align-items:center;gap:6px;margin-left:auto;
+padding:3px 10px;border-radius:99px;font-size:12px;font-weight:600}
+.v::before{content:'';width:6px;height:6px;border-radius:50%;background:currentColor}
+.vg{background:rgba(38,166,154,.15);color:var(--g)}
+.vg-soft{background:rgba(38,166,154,.08);color:var(--g)}
+.vr{background:rgba(239,83,80,.15);color:var(--r)}
+.vr-soft{background:rgba(239,83,80,.08);color:var(--r)}
+.vy{background:rgba(245,166,35,.15);color:var(--y)}
+.badge{background:#20242f;border:1px solid var(--line);color:var(--dim);
+padding:2px 9px;border-radius:99px;font-size:11px}
+.clash{background:rgba(245,166,35,.1);border:1px solid rgba(245,166,35,.3);
+color:#f0b757;border-radius:10px;padding:9px 12px;margin:10px 0 0;font-size:12.5px}
+.meta{display:flex;gap:16px;flex-wrap:wrap;color:var(--dim);
 font:11.5px ui-monospace,monospace;margin-top:10px}
 a{color:var(--b);text-decoration:none}
 a:hover{text-decoration:underline}
-.sec{margin:28px 0 12px;font-size:13px;color:var(--dim);text-transform:uppercase;
-letter-spacing:.06em}
-.unres{background:var(--card);border:1px dashed var(--line);border-radius:8px;
-padding:10px 12px;margin-bottom:8px;font-size:13px;color:var(--dim)}
+.sec{display:flex;align-items:center;gap:10px;margin:30px 0 14px;font-size:12px;
+color:var(--dim);text-transform:uppercase;letter-spacing:.08em;font-weight:600}
+.sec b{background:var(--card);border:1px solid var(--line);border-radius:99px;
+padding:1px 9px;font-size:11px;color:var(--tx)}
+.sec::after{content:'';flex:1;height:1px;background:var(--line)}
+details.fold>summary.sec{cursor:pointer;list-style:none;user-select:none}
+details.fold>summary.sec::-webkit-details-marker{display:none}
+details.fold>summary.sec::before{content:'\\25B8';font-size:10px;transition:transform .15s}
+details.fold[open]>summary.sec::before{transform:rotate(90deg)}
+.unres{background:var(--card);border:1px dashed var(--line);border-radius:10px;
+padding:10px 13px;margin-bottom:8px;font-size:13px;color:var(--dim)}
 .empty{color:var(--dim);padding:32px 0;text-align:center}
 table.sb{width:100%;border-collapse:collapse;font-size:13px}
 table.sb th{text-align:left;color:var(--dim);font-weight:500;
@@ -72,21 +91,29 @@ font-family:ui-monospace,monospace}
 table.sb tr:last-child td{border-bottom:none}
 .pos{color:var(--g)}
 .neg{color:var(--r)}
-.tfbar{display:flex;gap:6px;margin:8px 0 6px}
-.tfbar button{background:#22262f;color:var(--dim);border:1px solid var(--line);
-border-radius:6px;padding:3px 10px;font:600 12px ui-monospace,monospace;cursor:pointer}
-.tfbar button.on{background:rgba(74,144,217,.18);color:var(--b);border-color:var(--b)}
-.chart{height:340px;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.tfbar{display:inline-flex;gap:2px;margin:2px 0 8px;background:var(--well);
+border:1px solid var(--line);border-radius:8px;padding:3px}
+.tfbar button{background:none;border:0;color:var(--dim);border-radius:6px;
+padding:3px 12px;font:600 12px ui-monospace,monospace;cursor:pointer}
+.tfbar button:hover{color:var(--tx)}
+.tfbar button.on{background:rgba(91,157,224,.16);color:var(--b)}
+.chart{height:340px;border:1px solid var(--line);border-radius:10px;overflow:hidden}
 .chartwrap{position:relative}
-.legend{position:absolute;top:8px;left:10px;z-index:3;pointer-events:none;
+.legend{position:absolute;top:8px;left:8px;z-index:3;
 display:grid;grid-auto-flow:column;grid-template-rows:repeat(4,auto);
-gap:2px 18px;font:11px ui-monospace,monospace;
-background:rgba(18,20,26,.78);border:1px solid var(--line);border-radius:6px;padding:6px 9px}
-.legend div{display:flex;align-items:center;gap:7px;white-space:nowrap;min-width:170px}
-.legend i{width:15px;border-top:2px solid;flex:none}
+gap:1px 12px;font:10.5px ui-monospace,monospace;
+background:rgba(12,14,19,.85);border:1px solid var(--line);
+border-radius:8px;padding:5px 7px;backdrop-filter:blur(3px)}
+.legend div{display:flex;align-items:center;gap:6px;white-space:nowrap;min-width:158px;
+cursor:pointer;border-radius:5px;padding:1px 5px;user-select:none}
+.legend div:hover{background:rgba(255,255,255,.06)}
+.legend div.off{opacity:.35}
+.legend i{width:14px;border-top:2px solid;flex:none}
 .legend i.dot{border-top-style:dotted;border-top-width:3px}
-.legend em{color:#c9ced6;font-style:normal}
-.legend b{color:#8b919c;font-weight:400;margin-left:auto;padding-left:8px}
+.legend em{color:#c6cbd4;font-style:normal}
+.legend b{color:var(--dim);font-weight:400;margin-left:auto;padding-left:8px}
+@media(max-width:560px){.legend{grid-template-rows:repeat(8,auto)}
+.legend div{min-width:0}.legend b{display:none}}
 """
 
 
@@ -101,7 +128,7 @@ function initChart(box) {
   const el = box.querySelector('.chart');
   const chart = LightweightCharts.createChart(el, {
     autoSize: true,
-    layout: {background: {color: '#12141a'}, textColor: '#8b919c',
+    layout: {background: {color: '#10131a'}, textColor: '#8f96a3',
              fontFamily: 'ui-monospace, monospace', fontSize: 11},
     grid: {vertLines: {color: '#1c202a'}, horzLines: {color: '#1c202a'}},
     timeScale: {timeVisible: true, secondsVisible: false, borderColor: '#242832'},
@@ -141,12 +168,21 @@ function initChart(box) {
                 ['bc', 'CPR BC', '#8b919c', true],
                 ['r1', 'CPR R1', '#7ec8a9', true],
                 ['s1', 'CPR S1', '#e8908d', true]];
+  // Rows toggle their series on click — the direct answer to "too many lines":
+  // hide what you are not reading right now.
+  const toggles = {st: [stBull, stBear], ema50: [ema50], ema200: [ema200]};
+  for (const k in cprSeries) toggles[k] = [cprSeries[k]];
   const legend = box.querySelector('.legend');
   const cells = {};
   for (const [key, label, color, dotted] of rows) {
     const row = document.createElement('div');
+    row.title = 'click to show/hide';
     row.innerHTML = '<i class="' + (dotted ? 'dot' : '') + '" style="border-color:' +
                     color + '"></i><em>' + label + '</em><b></b>';
+    row.addEventListener('click', () => {
+      const off = row.classList.toggle('off');
+      for (const s of toggles[key]) s.applyOptions({visible: !off});
+    });
     legend.appendChild(row);
     cells[key] = {swatch: row.querySelector('i'), value: row.querySelector('b')};
   }
@@ -269,8 +305,8 @@ def _card_chart(c: dict, idx: int) -> str:
 <div class="sym">
   <span class="tick">{escape(c["symbol"])}</span>
   <span class="px">{escape(c["name"])} &middot; {_fmt(c["close"])}</span>
-  <span class="v {VERDICT_CLASS.get(v["verdict"], "vy")}">{escape(v["verdict"])}</span>
   {badges}
+  <span class="v {VERDICT_CLASS.get(v["verdict"], "vy")}">{escape(v["verdict"])}</span>
 </div>
 <div class="chartbox" data-id="{idx}">
   <div class="tfbar">{buttons}</div>
@@ -350,25 +386,31 @@ def render(cards: list[dict], unresolved: list[dict], stats: dict,
     chart_cards = [c for c in cards if c["kind"] == "chart"]
     nochart_cards = [c for c in cards if c["kind"] == "nochart"]
 
-    html = [f'<div class="wrap"><h1>X Signal Tracker</h1>',
-            f'<div class="sub">{escape(now)} &middot; '
-            f'{stats["kept"]} posts &middot; {len(chart_cards)} charted &middot; '
-            f'{len(nochart_cards)} unchartable &middot; {len(unresolved)} unresolved</div>',
+    html = [f'<div class="wrap"><div class="top"><h1>X Signal Tracker</h1>'
+            f'<span class="date">{escape(now)}</span></div>',
+            f'<div class="stats">'
+            f'<span class="stat"><b>{stats["kept"]}</b>posts</span>'
+            f'<span class="stat"><b>{len(chart_cards)}</b>charted</span>'
+            f'<span class="stat"><b>{len(nochart_cards)}</b>unchartable</span>'
+            f'<span class="stat"><b>{len(unresolved)}</b>unresolved</span></div>',
             banners]
 
     if not cards and not unresolved:
         html.append('<div class="empty">No assets mentioned in the last 24 hours.</div>')
 
     if chart_cards:
-        html.append('<div class="sec">Charted</div>')
+        html.append(f'<div class="sec">Charted <b>{len(chart_cards)}</b></div>')
         html.extend(_card_chart(c, i) for i, c in enumerate(chart_cards))
 
     if nochart_cards:
-        html.append('<div class="sec">Mentioned &mdash; no price feed</div>')
+        html.append(f'<div class="sec">Mentioned &mdash; no price feed <b>{len(nochart_cards)}</b></div>')
         html.extend(_card_nochart(c) for c in nochart_cards)
 
     if unresolved:
-        html.append('<div class="sec">Unresolved</div>')
+        # Folded by default: mostly noise (usernames, half-tickers), but kept
+        # inspectable — spec §10, nothing silently dropped.
+        html.append(f'<details class="fold"><summary class="sec">Unresolved '
+                    f'<b>{len(unresolved)}</b></summary>')
         for u in unresolved:
             html.append(
                 f'<div class="unres"><strong>{escape(u["raw_token"])}</strong> '
@@ -376,6 +418,7 @@ def render(cards: list[dict], unresolved: list[dict], stats: dict,
                 f'<a href="{escape(u["url"])}">open</a> '
                 f'&middot; found by {escape(u["method"])} in {escape(u["source_field"])}</div>'
             )
+        html.append('</details>')
 
     html.append(_scoreboard(board or []))
     html.append("</div>")
