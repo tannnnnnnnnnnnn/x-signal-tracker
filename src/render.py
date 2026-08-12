@@ -104,10 +104,10 @@ function initChart(box) {
   const lineOpts = {priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false};
   const stBull = chart.addLineSeries({color: '#26a69a', lineWidth: 2, ...lineOpts});
   const stBear = chart.addLineSeries({color: '#ef5350', lineWidth: 2, ...lineOpts});
-  // SwingCPR as dots, not lines: pivot, BC, TC only. R1/S1 stay in the meta line
-  // below the chart — five solid levels plus Supertrend was unreadable.
-  // [color, lineStyle, lineWidth]; lineStyle 4 = SparseDotted.
-  const cprStyle = {pivot: ['#f5a623', 4, 2], bc: ['#8b919c', 4, 1], tc: ['#8b919c', 4, 1]};
+  // SwingCPR as dots, not solid lines — five solid levels plus Supertrend was
+  // unreadable. [color, lineStyle, lineWidth]; lineStyle 4 = SparseDotted.
+  const cprStyle = {pivot: ['#f5a623', 4, 2], bc: ['#8b919c', 4, 1], tc: ['#8b919c', 4, 1],
+                    r1: ['#26a69a', 4, 1], s1: ['#ef5350', 4, 1]};
   const cprSeries = {};
   for (const k in cprStyle) {
     const [color, lineStyle, lineWidth] = cprStyle[k];
