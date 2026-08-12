@@ -76,7 +76,17 @@ table.sb tr:last-child td{border-bottom:none}
 .tfbar button{background:#22262f;color:var(--dim);border:1px solid var(--line);
 border-radius:6px;padding:3px 10px;font:600 12px ui-monospace,monospace;cursor:pointer}
 .tfbar button.on{background:rgba(74,144,217,.18);color:var(--b);border-color:var(--b)}
-.chart{height:320px;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.chart{height:340px;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.chartwrap{position:relative}
+.legend{position:absolute;top:8px;left:10px;z-index:3;pointer-events:none;
+display:grid;grid-auto-flow:column;grid-template-rows:repeat(4,auto);
+gap:2px 18px;font:11px ui-monospace,monospace;
+background:rgba(18,20,26,.78);border:1px solid var(--line);border-radius:6px;padding:6px 9px}
+.legend div{display:flex;align-items:center;gap:7px;white-space:nowrap;min-width:170px}
+.legend i{width:15px;border-top:2px solid;flex:none}
+.legend i.dot{border-top-style:dotted;border-top-width:3px}
+.legend em{color:#c9ced6;font-style:normal}
+.legend b{color:#8b919c;font-weight:400;margin-left:auto;padding-left:8px}
 """
 
 
@@ -105,15 +115,77 @@ function initChart(box) {
   const stBull = chart.addLineSeries({color: '#26a69a', lineWidth: 2, ...lineOpts});
   const stBear = chart.addLineSeries({color: '#ef5350', lineWidth: 2, ...lineOpts});
   // SwingCPR as dots, not solid lines — five solid levels plus Supertrend was
-  // unreadable. [color, lineStyle, lineWidth]; lineStyle 4 = SparseDotted.
-  const cprStyle = {pivot: ['#f5a623', 4, 2], bc: ['#8b919c', 4, 1], tc: ['#8b919c', 4, 1],
-                    r1: ['#26a69a', 4, 1], s1: ['#ef5350', 4, 1]};
+  // unreadable. [color, lineStyle, lineWidth, axis label]; lineStyle 4 = SparseDotted.
+  // Green/red belong to the Supertrend alone: R1/S1 use pale tints so a dotted
+  // level never reads as a trend fragment.
+  const cprStyle = {pivot: ['#f5a623', 4, 2, 'P'], bc: ['#8b919c', 4, 1, 'BC'],
+                    tc: ['#8b919c', 4, 1, 'TC'], r1: ['#7ec8a9', 4, 1, 'R1'],
+                    s1: ['#e8908d', 4, 1, 'S1']};
   const ema50 = chart.addLineSeries({color: '#4a90d9', lineWidth: 1, ...lineOpts});
   const ema200 = chart.addLineSeries({color: '#c678dd', lineWidth: 1, ...lineOpts});
   const cprSeries = {};
   for (const k in cprStyle) {
-    const [color, lineStyle, lineWidth] = cprStyle[k];
-    cprSeries[k] = chart.addLineSeries({color, lineStyle, lineWidth, ...lineOpts});
+    const [color, lineStyle, lineWidth, title] = cprStyle[k];
+    // Named on the price axis as well as in the legend — the levels sit close
+    // together, so a swatch alone does not say which dotted row is which.
+    cprSeries[k] = chart.addLineSeries({color, lineStyle, lineWidth, title,
+                                        ...lineOpts, lastValueVisible: true});
+  }
+
+  // Legend overlay. Each row: series key, label, swatch colour, dotted?
+  const rows = [['st', 'Supertrend (22,3)', '#26a69a', false],
+                ['ema50', 'EMA 50', '#4a90d9', false],
+                ['ema200', 'EMA 200', '#c678dd', false],
+                ['pivot', 'CPR pivot', '#f5a623', true],
+                ['tc', 'CPR TC', '#8b919c', true],
+                ['bc', 'CPR BC', '#8b919c', true],
+                ['r1', 'CPR R1', '#7ec8a9', true],
+                ['s1', 'CPR S1', '#e8908d', true]];
+  const legend = box.querySelector('.legend');
+  const cells = {};
+  for (const [key, label, color, dotted] of rows) {
+    const row = document.createElement('div');
+    row.innerHTML = '<i class="' + (dotted ? 'dot' : '') + '" style="border-color:' +
+                    color + '"></i><em>' + label + '</em><b></b>';
+    legend.appendChild(row);
+    cells[key] = {swatch: row.querySelector('i'), value: row.querySelector('b')};
+  }
+  const fmt = v => v == null ? '—'
+    : Math.abs(v) >= 1 ? v.toLocaleString(undefined, {maximumFractionDigits: 2})
+                       : v.toFixed(6);
+  // st/ema keys -> {at: Map(time -> point), last: point}, rebuilt per timeframe.
+  // CPR levels are month-long steps instead, so they are looked up by segment.
+  let series = {};
+  let lastTime = null;
+  const cprKeys = {pivot: 1, tc: 1, bc: 1, r1: 1, s1: 1};
+
+  function cprAt(key, time) {
+    const t = time == null ? lastTime : time;
+    for (const seg of data.cpr) {
+      if (t >= seg.start && t < seg.end) return {value: seg[key]};
+    }
+    const tail = data.cpr[data.cpr.length - 1];
+    return tail ? {value: tail[key]} : null;
+  }
+
+  function updateLegend(time) {
+    for (const [key] of rows) {
+      const s = series[key];
+      const p = cprKeys[key] ? cprAt(key, time)
+              : !s ? null : (time == null ? s.last : s.at.get(time) || null);
+      cells[key].value.textContent = p ? fmt(p.value) : '—';
+      if (key === 'st') {
+        cells.st.swatch.style.borderColor =
+          p && p.dir === 'bear' ? '#ef5350' : '#26a69a';
+      }
+    }
+  }
+  chart.subscribeCrosshairMove(p => updateLegend(p.time == null ? null : p.time));
+
+  function index(points) {
+    const at = new Map();
+    for (const p of points) at.set(p.time, p);
+    return {at, last: points.length ? points[points.length - 1] : null};
   }
 
   function setTF(tf) {
@@ -147,6 +219,9 @@ function initChart(box) {
       pts.pop();
       cprSeries[k].setData(pts);
     }
+    series = {st: index(d.st), ema50: index(d.ema50 || []), ema200: index(d.ema200 || [])};
+    lastTime = last;
+    updateLegend(null);
     const n = d.candles.length;
     chart.timeScale().setVisibleLogicalRange({from: Math.max(0, n - 130), to: n + 3});
     box.querySelectorAll('.tfbar button').forEach(b =>
@@ -199,16 +274,14 @@ def _card_chart(c: dict, idx: int) -> str:
 </div>
 <div class="chartbox" data-id="{idx}">
   <div class="tfbar">{buttons}</div>
-  <div class="chart"></div>
+  <div class="chartwrap">
+    <div class="chart"></div>
+    <div class="legend"></div>
+  </div>
 </div>
 <script type="application/json" id="data-{idx}">{payload}</script>
 <div class="meta">
   <span>ST {_fmt(c["st_value"])} ({escape(v["st_direction"])})</span>
-  <span>P {_fmt(c["cpr"]["pivot"])}</span>
-  <span>BC {_fmt(c["cpr"]["bc"])}</span>
-  <span>TC {_fmt(c["cpr"]["tc"])}</span>
-  <span>R1 {_fmt(c["cpr"]["r1"])}</span>
-  <span>S1 {_fmt(c["cpr"]["s1"])}</span>
   <span>CPR {escape(c["cpr"]["period"])} &middot; {c["cpr"]["width"] * 100:.2f}% wide</span>
 </div>
 {clash}
