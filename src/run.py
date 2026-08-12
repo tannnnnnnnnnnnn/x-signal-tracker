@@ -247,7 +247,12 @@ def main() -> int:
         warnings.append("No posts in 24h from: " + ", ".join("@" + h for h in stats["silent_handles"]))
 
     conn = db.connect()
-    db.sync_accounts(conn, cfg["accounts"], datetime.now(timezone.utc).isoformat())
+    # List membership is the source of truth (§ "config is policy"), so a handle
+    # posting from the List without a config entry needs an accounts row with
+    # default policy — tweets.handle has a foreign key onto it.
+    configured = {a["handle"] for a in cfg["accounts"]}
+    extra = [{"handle": h} for h in sorted({t["handle"] for t in tweets} - configured)]
+    db.sync_accounts(conn, cfg["accounts"] + extra, datetime.now(timezone.utc).isoformat())
     new = sum(db.insert_tweet(conn, t) for t in tweets)
     conn.commit()
     log(f"stored {new} new tweets ({len(tweets) - new} already seen)")
