@@ -23,7 +23,7 @@ import outcomes
 import prices
 import render
 import telegram
-from indicators import cpr_history, cpr_width_history, supertrend, swing_cpr
+from indicators import cpr_history, cpr_width_history, ema, supertrend, swing_cpr
 from verdict import judge, sentiment_disagrees
 
 
@@ -34,6 +34,7 @@ def log(msg: str) -> None:
 # Interactive chart timeframes. 1D drives the verdict and snapshot; 4H and 1W
 # are view-only and degrade gracefully when a venue or a young token lacks bars.
 EXTRA_TIMEFRAMES = {"4h": 1000, "1w": 500}
+EMA_PERIODS = (50, 200)
 
 
 def _tf_series(df, st) -> dict:
@@ -47,7 +48,13 @@ def _tf_series(df, st) -> dict:
         for ts, r in st.series.dropna(subset=["supertrend"]).iterrows():
             st_points.append({"time": int(ts.timestamp()),
                               "value": float(r["supertrend"]), "dir": r["direction"]})
-    return {"candles": candles, "st": st_points}
+    emas = {}
+    for period in EMA_PERIODS:
+        series = ema(df["close"], period).dropna()
+        emas[f"ema{period}"] = [
+            {"time": int(ts.timestamp()), "value": float(v)} for ts, v in series.items()
+        ]
+    return {"candles": candles, "st": st_points, **emas}
 
 
 def build_chart_data(symbol: str, asset_class: str, df_1d, st_1d, min_bars: int) -> dict:

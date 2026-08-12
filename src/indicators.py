@@ -47,6 +47,25 @@ def wilder_atr(high: pd.Series, low: pd.Series, close: pd.Series, period: int = 
     return pd.Series(out, index=high.index)
 
 
+def ema(close: pd.Series, period: int) -> pd.Series:
+    """EMA matching Pine's ta.ema: seeded with an SMA of the first `period` bars.
+
+    NaN until bar `period - 1`; a series shorter than `period` is all NaN, which
+    is how a young token ends up with no EMA200 line rather than a wrong one.
+    """
+    n = len(close)
+    out = np.full(n, np.nan)
+    if n < period:
+        return pd.Series(out, index=close.index)
+
+    values = close.to_numpy(dtype=float)
+    out[period - 1] = values[:period].mean()
+    alpha = 2.0 / (period + 1)
+    for i in range(period, n):
+        out[i] = alpha * values[i] + (1 - alpha) * out[i - 1]
+    return pd.Series(out, index=close.index)
+
+
 @dataclass(frozen=True)
 class Supertrend:
     value: float

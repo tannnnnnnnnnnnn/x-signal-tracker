@@ -108,6 +108,8 @@ function initChart(box) {
   // unreadable. [color, lineStyle, lineWidth]; lineStyle 4 = SparseDotted.
   const cprStyle = {pivot: ['#f5a623', 4, 2], bc: ['#8b919c', 4, 1], tc: ['#8b919c', 4, 1],
                     r1: ['#26a69a', 4, 1], s1: ['#ef5350', 4, 1]};
+  const ema50 = chart.addLineSeries({color: '#4a90d9', lineWidth: 1, ...lineOpts});
+  const ema200 = chart.addLineSeries({color: '#c678dd', lineWidth: 1, ...lineOpts});
   const cprSeries = {};
   for (const k in cprStyle) {
     const [color, lineStyle, lineWidth] = cprStyle[k];
@@ -127,6 +129,9 @@ function initChart(box) {
     }
     stBull.setData(bull);
     stBear.setData(bear);
+    // Empty when the series is shorter than the EMA period (young tokens, 1W).
+    ema50.setData(d.ema50 || []);
+    ema200.setData(d.ema200 || []);
     // Monthly CPR: flat month-long steps, clipped to the candle range.
     const first = d.candles.length ? d.candles[0].time : 0;
     const last = d.candles.length ? d.candles[d.candles.length - 1].time : 0;

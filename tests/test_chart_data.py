@@ -2,9 +2,10 @@
 
 import numpy as np
 import pandas as pd
+import pytest
 
 import run as runmod
-from indicators import cpr_history, supertrend, swing_cpr
+from indicators import cpr_history, ema, supertrend, swing_cpr
 
 
 def _df(days=120, start="2026-04-01"):
@@ -61,3 +62,31 @@ def test_build_chart_data_degrades_when_tf_unavailable(monkeypatch):
     data = runmod.build_chart_data("X", "crypto", df, st, 500)
     assert "1d" in data and "cpr" in data
     assert "4h" not in data and "1w" not in data
+
+
+# --- 50/200 EMA ---------------------------------------------------------------
+
+def test_ema_seeds_with_sma_like_pine():
+    s = pd.Series(np.arange(1, 11, dtype=float))
+    out = ema(s, 3)
+    assert out.iloc[:2].isna().all()
+    assert out.iloc[2] == pytest.approx(2.0)          # SMA of 1,2,3
+    assert out.iloc[3] == pytest.approx(0.5 * 4 + 0.5 * 2.0)
+
+
+def test_ema_all_nan_when_history_is_shorter_than_the_period():
+    assert ema(pd.Series([1.0, 2.0]), 200).isna().all()
+
+
+def test_chart_payload_carries_both_emas():
+    df = _df(days=260)
+    data = runmod._tf_series(df, supertrend(df))
+    assert len(data["ema50"]) == 260 - 49
+    assert len(data["ema200"]) == 260 - 199
+    assert set(data["ema50"][0]) == {"time", "value"}
+
+
+def test_ema200_omitted_for_short_history():
+    df = _df(days=120)
+    data = runmod._tf_series(df, supertrend(df))
+    assert data["ema50"] and data["ema200"] == []
