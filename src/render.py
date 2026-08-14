@@ -3,6 +3,9 @@
 Charts are TradingView Lightweight Charts (CDN), interactive: pan, zoom,
 and a 4H/1D/1W timeframe switcher per card. Chart data ships as JSON blobs
 inline; charts initialise lazily as cards scroll into view.
+
+The visual design is themed through two token dicts (CSS variables + chart
+palette) so the whole page can be re-skinned without touching structure.
 """
 
 from __future__ import annotations
@@ -13,6 +16,7 @@ from html import escape
 from pathlib import Path
 
 LWC_CDN = "https://unpkg.com/lightweight-charts@4.2.3/dist/lightweight-charts.standalone.production.js"
+FONT_CSS = "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
 
 OUT = Path(__file__).resolve().parent.parent / "out" / "dist.html"
 
@@ -22,102 +26,148 @@ VERDICT_CLASS = {
     "Conflict": "vy",
 }
 
-CSS = """
-:root{--bg:#0c0e13;--card:#151821;--well:#10131a;--line:#232837;--tx:#e8eaef;
---dim:#8f96a3;--g:#26a69a;--r:#ef5350;--y:#f5a623;--b:#5b9de0}
+# Design tokens. --acc drives the active-tab underline; --lk is link colour.
+THEME_CSS = {
+    "bg": "#f7f6f2", "card": "#ffffff", "well": "#faf9f5", "line": "#e7e5df",
+    "tx": "#141414", "tx2": "#454545", "dim": "#8b8b8b",
+    "g": "#2aa06a", "r": "#e03a36", "y": "#b98a00",
+    "acc": "#ffc008", "lk": "#2c79f7",
+}
+
+# Chart palette, injected into the JS as `C`.
+THEME_CHART = {
+    "bg": "#ffffff", "text": "#9b9b9b", "grid": "#f2f2f2", "border": "#e7e5df",
+    "up": "#3bb87a", "down": "#ff423d",
+    "ema50": "#2c79f7", "ema200": "#8459fc",
+    "pivot": "#e7ae07", "band": "#b0b0b0", "r1": "#6db392", "s1": "#e0958f",
+}
+
+
+def _root(tokens: dict) -> str:
+    return ":root{" + ";".join(f"--{k}:{v}" for k, v in tokens.items()) + "}"
+
+
+CSS_BODY = """
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--tx);
-font:14px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+font:14px/1.55 Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
 -webkit-font-smoothing:antialiased}
-.wrap{max-width:880px;margin:0 auto;padding:28px 18px 72px}
-.top{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
-h1{font-size:21px;margin:0;letter-spacing:-.01em}
-.date{color:var(--dim);font-size:13px}
-.stats{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0 24px}
+.tick,.apx,.stat b,.legend,.srow b,table.sb td{font-variant-numeric:tabular-nums}
+.topbar{position:sticky;top:0;z-index:20;background:var(--card);
+border-bottom:1px solid var(--line)}
+.tb{max-width:880px;margin:0 auto;padding:11px 18px;display:flex;
+align-items:center;gap:10px}
+.mark{width:26px;height:26px;border-radius:8px;background:var(--tx);
+color:var(--card);display:grid;place-items:center;font-weight:800;
+font-size:13px;letter-spacing:-.02em}
+h1{font-size:15.5px;margin:0;font-weight:700;letter-spacing:-.01em}
+.date{margin-left:auto;color:var(--dim);font-size:12.5px}
+.wrap{max-width:880px;margin:0 auto;padding:22px 18px 72px}
+.stats{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 22px}
 .stat{background:var(--card);border:1px solid var(--line);border-radius:99px;
 padding:4px 12px;font-size:12px;color:var(--dim)}
-.stat b{color:var(--tx);font-weight:600;margin-right:5px;font-family:ui-monospace,monospace}
-.banner{background:#33250f;border:1px solid #6b4a1a;border-radius:10px;
-padding:10px 14px;margin-bottom:12px;font-size:13px;color:#e8c68a}
-.banner.err{background:#331416;border-color:#7a2a2e;color:#eba1a3}
+.stat b{color:var(--tx);font-weight:650;margin-right:5px}
+.banner{background:color-mix(in srgb,var(--y) 9%,var(--card));
+border:1px solid color-mix(in srgb,var(--y) 30%,var(--card));
+border-radius:10px;padding:10px 14px;margin-bottom:12px;font-size:13px}
+.banner.err{background:color-mix(in srgb,var(--r) 8%,var(--card));
+border-color:color-mix(in srgb,var(--r) 30%,var(--card))}
 .card{background:var(--card);border:1px solid var(--line);border-radius:12px;
-padding:16px 18px;margin-bottom:16px;transition:border-color .15s}
-.card:hover{border-color:#303748}
-.hd{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;margin-bottom:6px}
+padding:18px 20px;margin-bottom:14px}
+.hd{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;
+margin-bottom:6px;font-size:13px}
 .who{font-weight:650}
 .rt{color:var(--dim);font-size:12px}
 .when{color:var(--dim);font-size:12px;margin-left:auto}
-.tw{color:#c6cbd4;white-space:pre-wrap;margin:6px 0 14px;font-size:13px}
+.tw{color:var(--tx2);white-space:pre-wrap;margin:6px 0 14px;font-size:13.5px}
 .quo{border-left:2px solid var(--line);padding-left:10px;color:var(--dim);
 margin:6px 0 14px;font-size:13px;white-space:pre-wrap}
-.sym{display:flex;gap:10px;align-items:center;flex-wrap:wrap;
-background:var(--well);border:1px solid var(--line);border-radius:10px;
-padding:9px 13px;margin-bottom:10px}
-.tick{font:650 15px ui-monospace,monospace;letter-spacing:.01em}
-.px{color:var(--dim);font:12px ui-monospace,monospace}
-.v{display:inline-flex;align-items:center;gap:6px;margin-left:auto;
-padding:3px 10px;border-radius:99px;font-size:12px;font-weight:600}
-.v::before{content:'';width:6px;height:6px;border-radius:50%;background:currentColor}
-.vg{background:rgba(38,166,154,.15);color:var(--g)}
-.vg-soft{background:rgba(38,166,154,.08);color:var(--g)}
-.vr{background:rgba(239,83,80,.15);color:var(--r)}
-.vr-soft{background:rgba(239,83,80,.08);color:var(--r)}
-.vy{background:rgba(245,166,35,.15);color:var(--y)}
-.badge{background:#20242f;border:1px solid var(--line);color:var(--dim);
-padding:2px 9px;border-radius:99px;font-size:11px}
-.clash{background:rgba(245,166,35,.1);border:1px solid rgba(245,166,35,.3);
-color:#f0b757;border-radius:10px;padding:9px 12px;margin:10px 0 0;font-size:12.5px}
-.meta{display:flex;gap:16px;flex-wrap:wrap;color:var(--dim);
-font:11.5px ui-monospace,monospace;margin-top:10px}
-a{color:var(--b);text-decoration:none}
+.asset{display:flex;align-items:center;gap:14px;
+border-top:1px solid var(--line);padding:13px 0 11px}
+.al{min-width:0}
+.tick{font-size:17px;font-weight:750;letter-spacing:-.01em}
+.nm{color:var(--dim);font-size:12.5px;margin-top:2px;display:flex;gap:6px;
+align-items:center;flex-wrap:wrap}
+.ar{margin-left:auto;text-align:right;flex:none}
+.apx{font-size:17px;font-weight:750}
+.v{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;
+border-radius:99px;font-size:12px;font-weight:600;margin-top:3px}
+.v::before{content:'';width:6px;height:6px;border-radius:50%;
+background:currentColor}
+.vg{background:color-mix(in srgb,var(--g) 13%,transparent);color:var(--g)}
+.vg-soft{background:color-mix(in srgb,var(--g) 7%,transparent);color:var(--g)}
+.vr{background:color-mix(in srgb,var(--r) 12%,transparent);color:var(--r)}
+.vr-soft{background:color-mix(in srgb,var(--r) 7%,transparent);color:var(--r)}
+.vy{background:color-mix(in srgb,var(--y) 13%,transparent);color:var(--y)}
+.badge{background:var(--well);border:1px solid var(--line);color:var(--dim);
+padding:1px 8px;border-radius:99px;font-size:11px}
+.clash{background:color-mix(in srgb,var(--y) 9%,var(--card));
+border:1px solid color-mix(in srgb,var(--y) 30%,var(--card));
+border-radius:10px;padding:9px 12px;margin:12px 0 0;font-size:12.5px}
+a{color:var(--lk);text-decoration:none}
 a:hover{text-decoration:underline}
-.sec{display:flex;align-items:center;gap:10px;margin:30px 0 14px;font-size:12px;
-color:var(--dim);text-transform:uppercase;letter-spacing:.08em;font-weight:600}
+.sec{display:flex;align-items:center;gap:10px;margin:30px 0 14px;
+font-size:12px;color:var(--dim);text-transform:uppercase;
+letter-spacing:.08em;font-weight:600}
 .sec b{background:var(--card);border:1px solid var(--line);border-radius:99px;
 padding:1px 9px;font-size:11px;color:var(--tx)}
 .sec::after{content:'';flex:1;height:1px;background:var(--line)}
 details.fold>summary.sec{cursor:pointer;list-style:none;user-select:none}
 details.fold>summary.sec::-webkit-details-marker{display:none}
-details.fold>summary.sec::before{content:'\\25B8';font-size:10px;transition:transform .15s}
+details.fold>summary.sec::before{content:'\\25B8';font-size:10px;
+transition:transform .15s}
 details.fold[open]>summary.sec::before{transform:rotate(90deg)}
-.unres{background:var(--card);border:1px dashed var(--line);border-radius:10px;
-padding:10px 13px;margin-bottom:8px;font-size:13px;color:var(--dim)}
+.unres{background:var(--card);border:1px dashed var(--line);
+border-radius:10px;padding:10px 13px;margin-bottom:8px;font-size:13px;
+color:var(--dim)}
 .empty{color:var(--dim);padding:32px 0;text-align:center}
 table.sb{width:100%;border-collapse:collapse;font-size:13px}
 table.sb th{text-align:left;color:var(--dim);font-weight:500;
 border-bottom:1px solid var(--line);padding:6px 8px 8px}
-table.sb td{padding:7px 8px;border-bottom:1px solid var(--line);
-font-family:ui-monospace,monospace}
+table.sb th+th,table.sb td+td{text-align:right}
+table.sb td{padding:7px 8px;border-bottom:1px solid var(--line)}
 table.sb tr:last-child td{border-bottom:none}
 .pos{color:var(--g)}
 .neg{color:var(--r)}
-.tfbar{display:inline-flex;gap:2px;margin:2px 0 8px;background:var(--well);
-border:1px solid var(--line);border-radius:8px;padding:3px}
-.tfbar button{background:none;border:0;color:var(--dim);border-radius:6px;
-padding:3px 12px;font:600 12px ui-monospace,monospace;cursor:pointer}
+.tfbar{display:flex;gap:2px;border-bottom:1px solid var(--line);
+margin:2px 0 12px}
+.tfbar button{background:none;border:0;border-bottom:2px solid transparent;
+color:var(--dim);padding:6px 14px 7px;font:600 12.5px Inter,sans-serif;
+cursor:pointer;margin-bottom:-1px}
 .tfbar button:hover{color:var(--tx)}
-.tfbar button.on{background:rgba(91,157,224,.16);color:var(--b)}
-.chart{height:340px;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.tfbar button.on{color:var(--tx);border-bottom-color:var(--acc)}
+.chart{height:340px;border:1px solid var(--line);border-radius:10px;
+overflow:hidden}
 .chartwrap{position:relative}
 .legend{position:absolute;top:8px;left:8px;z-index:3;
 display:grid;grid-auto-flow:column;grid-template-rows:repeat(4,auto);
-gap:1px 12px;font:10.5px ui-monospace,monospace;
-background:rgba(12,14,19,.85);border:1px solid var(--line);
-border-radius:8px;padding:5px 7px;backdrop-filter:blur(3px)}
-.legend div{display:flex;align-items:center;gap:6px;white-space:nowrap;min-width:158px;
-cursor:pointer;border-radius:5px;padding:1px 5px;user-select:none}
-.legend div:hover{background:rgba(255,255,255,.06)}
+gap:1px 12px;font:10.5px ui-monospace,SFMono-Regular,monospace;
+background:color-mix(in srgb,var(--card) 88%,transparent);
+border:1px solid var(--line);border-radius:8px;padding:5px 7px;
+backdrop-filter:blur(3px)}
+.legend div{display:flex;align-items:center;gap:6px;white-space:nowrap;
+min-width:158px;cursor:pointer;border-radius:5px;padding:1px 5px;
+user-select:none}
+.legend div:hover{background:color-mix(in srgb,var(--tx) 6%,transparent)}
 .legend div.off{opacity:.35}
 .legend i{width:14px;border-top:2px solid;flex:none}
 .legend i.dot{border-top-style:dotted;border-top-width:3px}
-.legend em{color:#c6cbd4;font-style:normal}
+.legend em{color:var(--tx2);font-style:normal}
 .legend b{color:var(--dim);font-weight:400;margin-left:auto;padding-left:8px}
+.srow{display:flex;margin-top:12px;border-top:1px solid var(--line);
+padding-top:11px}
+.srow .s{flex:1;padding:0 16px;border-left:1px solid var(--line)}
+.srow .s:first-child{border-left:0;padding-left:0}
+.srow label{display:block;color:var(--dim);font-size:10.5px;
+text-transform:uppercase;letter-spacing:.06em;margin-bottom:1px}
+.srow b{font-weight:650;font-size:13px}
 @media(max-width:560px){.legend{grid-template-rows:repeat(8,auto)}
 .legend div{min-width:0}.legend b{display:none}}
 """
 
 
 JS = """
+const C = %%PALETTE%%;
 const inited = new Set();
 
 function initChart(box) {
@@ -128,28 +178,28 @@ function initChart(box) {
   const el = box.querySelector('.chart');
   const chart = LightweightCharts.createChart(el, {
     autoSize: true,
-    layout: {background: {color: '#10131a'}, textColor: '#8f96a3',
+    layout: {background: {color: C.bg}, textColor: C.text,
              fontFamily: 'ui-monospace, monospace', fontSize: 11},
-    grid: {vertLines: {color: '#1c202a'}, horzLines: {color: '#1c202a'}},
-    timeScale: {timeVisible: true, secondsVisible: false, borderColor: '#242832'},
-    rightPriceScale: {borderColor: '#242832'},
+    grid: {vertLines: {color: C.grid}, horzLines: {color: C.grid}},
+    timeScale: {timeVisible: true, secondsVisible: false, borderColor: C.border},
+    rightPriceScale: {borderColor: C.border},
   });
   const candles = chart.addCandlestickSeries({
-    upColor: '#26a69a', downColor: '#ef5350', borderVisible: false,
-    wickUpColor: '#26a69a', wickDownColor: '#ef5350',
+    upColor: C.up, downColor: C.down, borderVisible: false,
+    wickUpColor: C.up, wickDownColor: C.down,
   });
   const lineOpts = {priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false};
-  const stBull = chart.addLineSeries({color: '#26a69a', lineWidth: 2, ...lineOpts});
-  const stBear = chart.addLineSeries({color: '#ef5350', lineWidth: 2, ...lineOpts});
+  const stBull = chart.addLineSeries({color: C.up, lineWidth: 2, ...lineOpts});
+  const stBear = chart.addLineSeries({color: C.down, lineWidth: 2, ...lineOpts});
   // SwingCPR as dots, not solid lines — five solid levels plus Supertrend was
   // unreadable. [color, lineStyle, lineWidth, axis label]; lineStyle 4 = SparseDotted.
   // Green/red belong to the Supertrend alone: R1/S1 use pale tints so a dotted
   // level never reads as a trend fragment.
-  const cprStyle = {pivot: ['#f5a623', 4, 2, 'P'], bc: ['#8b919c', 4, 1, 'BC'],
-                    tc: ['#8b919c', 4, 1, 'TC'], r1: ['#7ec8a9', 4, 1, 'R1'],
-                    s1: ['#e8908d', 4, 1, 'S1']};
-  const ema50 = chart.addLineSeries({color: '#4a90d9', lineWidth: 1, ...lineOpts});
-  const ema200 = chart.addLineSeries({color: '#c678dd', lineWidth: 1, ...lineOpts});
+  const cprStyle = {pivot: [C.pivot, 4, 2, 'P'], bc: [C.band, 4, 1, 'BC'],
+                    tc: [C.band, 4, 1, 'TC'], r1: [C.r1, 4, 1, 'R1'],
+                    s1: [C.s1, 4, 1, 'S1']};
+  const ema50 = chart.addLineSeries({color: C.ema50, lineWidth: 1, ...lineOpts});
+  const ema200 = chart.addLineSeries({color: C.ema200, lineWidth: 1, ...lineOpts});
   const cprSeries = {};
   for (const k in cprStyle) {
     const [color, lineStyle, lineWidth, title] = cprStyle[k];
@@ -160,14 +210,14 @@ function initChart(box) {
   }
 
   // Legend overlay. Each row: series key, label, swatch colour, dotted?
-  const rows = [['st', 'Supertrend (22,3)', '#26a69a', false],
-                ['ema50', 'EMA 50', '#4a90d9', false],
-                ['ema200', 'EMA 200', '#c678dd', false],
-                ['pivot', 'CPR pivot', '#f5a623', true],
-                ['tc', 'CPR TC', '#8b919c', true],
-                ['bc', 'CPR BC', '#8b919c', true],
-                ['r1', 'CPR R1', '#7ec8a9', true],
-                ['s1', 'CPR S1', '#e8908d', true]];
+  const rows = [['st', 'Supertrend (22,3)', C.up, false],
+                ['ema50', 'EMA 50', C.ema50, false],
+                ['ema200', 'EMA 200', C.ema200, false],
+                ['pivot', 'CPR pivot', C.pivot, true],
+                ['tc', 'CPR TC', C.band, true],
+                ['bc', 'CPR BC', C.band, true],
+                ['r1', 'CPR R1', C.r1, true],
+                ['s1', 'CPR S1', C.s1, true]];
   // Rows toggle their series on click — the direct answer to "too many lines":
   // hide what you are not reading right now.
   const toggles = {st: [stBull, stBear], ema50: [ema50], ema200: [ema200]};
@@ -212,7 +262,7 @@ function initChart(box) {
       cells[key].value.textContent = p ? fmt(p.value) : '—';
       if (key === 'st') {
         cells.st.swatch.style.borderColor =
-          p && p.dir === 'bear' ? '#ef5350' : '#26a69a';
+          p && p.dir === 'bear' ? C.down : C.up;
       }
     }
   }
@@ -302,11 +352,15 @@ def _card_chart(c: dict, idx: int) -> str:
     return f"""<div class="card">
 {_header(c)}
 {_body(c)}
-<div class="sym">
-  <span class="tick">{escape(c["symbol"])}</span>
-  <span class="px">{escape(c["name"])} &middot; {_fmt(c["close"])}</span>
-  {badges}
-  <span class="v {VERDICT_CLASS.get(v["verdict"], "vy")}">{escape(v["verdict"])}</span>
+<div class="asset">
+  <div class="al">
+    <div class="tick">{escape(c["symbol"])}</div>
+    <div class="nm">{escape(c["name"])}{badges}</div>
+  </div>
+  <div class="ar">
+    <div class="apx">{_fmt(c["close"])}</div>
+    <span class="v {VERDICT_CLASS.get(v["verdict"], "vy")}">{escape(v["verdict"])}</span>
+  </div>
 </div>
 <div class="chartbox" data-id="{idx}">
   <div class="tfbar">{buttons}</div>
@@ -316,9 +370,10 @@ def _card_chart(c: dict, idx: int) -> str:
   </div>
 </div>
 <script type="application/json" id="data-{idx}">{payload}</script>
-<div class="meta">
-  <span>ST {_fmt(c["st_value"])} ({escape(v["st_direction"])})</span>
-  <span>CPR {escape(c["cpr"]["period"])} &middot; {c["cpr"]["width"] * 100:.2f}% wide</span>
+<div class="srow">
+  <div class="s"><label>Supertrend</label><b>{_fmt(c["st_value"])} &middot; {escape(v["st_direction"])}</b></div>
+  <div class="s"><label>CPR period</label><b>{escape(c["cpr"]["period"])}</b></div>
+  <div class="s"><label>CPR width</label><b>{c["cpr"]["width"] * 100:.2f}%</b></div>
 </div>
 {clash}
 </div>"""
@@ -328,9 +383,11 @@ def _card_nochart(c: dict) -> str:
     return f"""<div class="card">
 {_header(c)}
 {_body(c)}
-<div class="sym">
-  <span class="tick">{escape(c["subject"])}</span>
-  <span class="badge">no price feed &mdash; not charted</span>
+<div class="asset">
+  <div class="al">
+    <div class="tick">{escape(c["subject"])}</div>
+    <div class="nm">no price feed &mdash; not charted</div>
+  </div>
 </div>
 </div>"""
 
@@ -386,8 +443,10 @@ def render(cards: list[dict], unresolved: list[dict], stats: dict,
     chart_cards = [c for c in cards if c["kind"] == "chart"]
     nochart_cards = [c for c in cards if c["kind"] == "nochart"]
 
-    html = [f'<div class="wrap"><div class="top"><h1>X Signal Tracker</h1>'
-            f'<span class="date">{escape(now)}</span></div>',
+    html = [f'<div class="topbar"><div class="tb"><span class="mark">X</span>'
+            f'<h1>Signal Tracker</h1><span class="date">{escape(now)}</span>'
+            f'</div></div>',
+            f'<div class="wrap">',
             f'<div class="stats">'
             f'<span class="stat"><b>{stats["kept"]}</b>posts</span>'
             f'<span class="stat"><b>{len(chart_cards)}</b>charted</span>'
@@ -425,13 +484,18 @@ def render(cards: list[dict], unresolved: list[dict], stats: dict,
 
     scripts = ""
     if chart_cards:
-        scripts = f'<script src="{LWC_CDN}"></script><script>{JS}</script>'
+        js = JS.replace("%%PALETTE%%", json.dumps(THEME_CHART))
+        scripts = f'<script src="{LWC_CDN}"></script><script>{js}</script>'
 
+    css = _root(THEME_CSS) + CSS_BODY
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(
         f"<!doctype html><html><head><meta charset='utf-8'>"
         f"<meta name='viewport' content='width=device-width,initial-scale=1'>"
-        f"<title>X Signal Tracker</title><style>{CSS}</style></head>"
+        f"<title>X Signal Tracker</title>"
+        f"<link rel='preconnect' href='https://fonts.gstatic.com' crossorigin>"
+        f"<link rel='stylesheet' href='{FONT_CSS}'>"
+        f"<style>{css}</style></head>"
         f"<body>{''.join(html)}{scripts}</body></html>",
         encoding="utf-8",
     )
